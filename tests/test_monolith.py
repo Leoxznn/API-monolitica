@@ -25,5 +25,17 @@ class TestMonolith(unittest.TestCase):
 
         self.assertEqual(result["payment_status"], "REJECTED")
 
+    @patch("monolith.requests.post")
+    def test_order_fields(self, mock_post):
+        mock_post.return_value = Mock(status_code=200)
+        mock_post.return_value.json.return_value = {"status": "APPROVED"}
+
+        monolith = Monolith()
+        result = monolith.create_order({"item": "teclado", "price": 300})
+
+        self.assertIn("order", result)
+        self.assertIn("payment_status", result)
+        self.assertEqual(result["order"]["price"], 300)
+
 if __name__ == "__main__":
     unittest.main()

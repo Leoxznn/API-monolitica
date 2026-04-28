@@ -1,30 +1,25 @@
-import time
 import threading
-import requests
 from logger_config import setup_logging
-
+ 
 setup_logging()
-
-# inicia o PaymentService em background
+ 
 def start_payment_service():
     import payment_service
-    payment_service.app.run(port = 5001, use_reloader = False)
-
-# inicia o Gateway em background
+    payment_service.app.run(host="0.0.0.0", port=5001, use_reloader=False)
+ 
 def start_gateway():
     import gateway
-    gateway.app.run(port = 5000, use_reloader = False)
-
-threading.Thread(target = start_payment_service, daemon = True).start()
-threading.Thread(target = start_gateway, daemon = True).start()
-
-# Aguarda os servidores iniciarem
-time.sleep(1)
-
-# Faz a requisição HTTP real ao Gateway
-response = requests.post(
-    "http://localhost:5000/api/orders",
-    json={"item": "Mouse", "price": 50}
-)
-
-print("\nResposta final:", response.json()) 
+    gateway.app.run(host="0.0.0.0", port=5000, use_reloader=False)
+ 
+t1 = threading.Thread(target=start_payment_service, daemon=True)
+t2 = threading.Thread(target=start_gateway, daemon=True)
+ 
+t1.start()
+t2.start()
+ 
+print("Gateway      → http://0.0.0.0:5000")
+print("PaymentSvc   → http://0.0.0.0:5001")
+print("Pressione Ctrl+C para encerrar.")
+ 
+t1.join()
+t2.join()
