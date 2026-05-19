@@ -137,6 +137,47 @@ python -m pytest tests/test_monolith.py tests/test_integration.py -v
     └── test_integration.py     # Testes de integração com servidores reais
 ```
 
+## Escalabilidade (Trabalho 02)
+
+O sistema implementa as estratégias descritas em `SCALABILITY.md`:
+
+- **Gunicorn** com vários workers em cada serviço (escala vertical do processo).
+- **Replicação** do `payment_service` em três instâncias independentes (`payment1`, `payment2`, `payment3`).
+- **Load balancer round-robin manual** dentro do monólito (`monolith._next_payment_url`), configurado via `PAYMENT_SERVICE_URLS` (lista CSV).
+- Cada instância de pagamento expõe o seu `INSTANCE_ID` nos logs e na resposta JSON, para evidenciar qual réplica respondeu cada requisição.
+- **Idempotency-Key** + persistência em Postgres para evitar pedidos/pagamentos duplicados sob retries.
+- **Timeout + retries com backoff** (`tenacity`) na chamada do monólito para o pagamento.
+
+### Subir o ambiente escalado
+
+```bash
+docker compose up --build
+```
+
+### Executar teste de carga
+
+```bash
+# Baseline
+python loadtest.py -n 100 -c 10
+
+# Stress
+python loadtest.py -n 500 -c 100
+```
+
+O relatório do `loadtest.py` imprime tempo de resposta (min/mean/p95/p99), erros e a **distribuição por instância** — confirmando o efeito do round-robin entre `payment-1`, `payment-2` e `payment-3`.
+
+### Demonstrar com e sem escala
+
+```bash
+# Sem escala: usar apenas uma réplica
+PAYMENT_SERVICE_URLS=http://payment1:5001/payment docker compose up --build
+
+# Com escala: três réplicas (default do compose)
+docker compose up --build
+```
+
+Compare p95/p99 e throughput entre os dois cenários — é o que evidencia o ganho da escala horizontal.
+
 ## Considerações de design
 
 A comunicação via HTTP desacopla completamente os serviços: o PaymentService pode ser reescrito em outra linguagem ou substituído por outro serviço, desde que respeite o contrato `POST /payment` com o JSON esperado.

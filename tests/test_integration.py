@@ -47,5 +47,5 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(response.status_code, 405)
         self.assertIn("error", response.json())
  
-if __name__ == "__main__":
+if __name__ == "__main__":  
     unittest.main()
