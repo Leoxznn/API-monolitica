@@ -1,24 +1,3 @@
-"""
-Simple concurrent load test for POST /api/orders.
-
-Usage:
-    # default: 100 requests, 50 concurrent workers, against localhost:5000
-    python loadtest.py
-
-    # 500 requests, 100 concurrent
-    python loadtest.py --requests 500 --concurrency 100
-
-    # against a different host
-    python loadtest.py --url http://localhost:5000/api/orders
-
-Tips for finding limits:
-    1. Start the stack:        docker compose up --build
-    2. Run a baseline:         python loadtest.py -n 100 -c 10
-    3. Crank concurrency:      python loadtest.py -n 500 -c 100
-    4. Scale payment workers:  docker compose up --scale payment=3
-       and re-run the same load — compare p95 / errors.
-"""
-
 import argparse
 import statistics
 import time
@@ -28,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 
-def one_request(url: str, idempotent: bool):
+def one_request(url, idempotent):
     headers = {"Content-Type": "application/json"}
     if idempotent:
         headers["Idempotency-Key"] = str(uuid.uuid4())
@@ -58,7 +37,7 @@ def percentile(values, p):
     return s[k]
 
 
-def run(url: str, total: int, concurrency: int, idempotent: bool):
+def run(url, total, concurrency, idempotent):
     print(f"→ {total} requests, {concurrency} concurrent workers")
     print(f"→ target: {url}")
     print(f"→ idempotency keys: {'on' if idempotent else 'off'}")
@@ -108,16 +87,10 @@ def run(url: str, total: int, concurrency: int, idempotent: bool):
         if r.get("instance"):
             by_instance[r["instance"]] = by_instance.get(r["instance"], 0) + 1
     if by_instance:
-        print("──── distribuição por instância (load balancer) ────")
+        print("──── distribuição por instância ────")
         for inst, count in sorted(by_instance.items()):
             print(f"  {inst}: {count}")
         print()
-
-    print("──── what to look at ────")
-    print(" - failed > 0 or non-200 statuses → workers/timeouts saturated")
-    print(" - throughput plateau when raising -c → bottleneck reached")
-    print(" - p95/p99 ≫ median → tail latency (slow downstream / GC / lock)")
-    print(" - re-run with `docker compose up --scale payment=3` and compare")
 
 
 def main():
@@ -125,11 +98,7 @@ def main():
     p.add_argument("--url", default="http://localhost:5000/api/orders")
     p.add_argument("-n", "--requests", type=int, default=100)
     p.add_argument("-c", "--concurrency", type=int, default=50)
-    p.add_argument(
-        "--no-idempotency",
-        action="store_true",
-        help="Disable Idempotency-Key header (each request creates a new order)",
-    )
+    p.add_argument("--no-idempotency", action="store_true")
     args = p.parse_args()
     run(args.url, args.requests, args.concurrency, idempotent=not args.no_idempotency)
 

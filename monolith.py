@@ -24,7 +24,6 @@ _rr_cycle = itertools.cycle(PAYMENT_SERVICE_URLS)
 
 
 def _next_payment_url():
-    # Manual round-robin across configured payment replicas.
     with _rr_lock:
         return next(_rr_cycle)
 

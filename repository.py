@@ -51,6 +51,5 @@ class Repository:
                 session.commit()
             except Exception:
                 session.rollback()
-                # Another worker won the race — return the stored copy
                 return self.get_idempotent_response(key)
             return response

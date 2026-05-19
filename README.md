@@ -44,7 +44,6 @@ Servidor Flask que expõe a rota `POST /payment`. Aprova pagamentos com `price >
 
 ### Outros arquivos
 
-- `main.py` — sobe os dois servidores em threads e mantém o processo ativo.
 - `logger_config.py` — configura o logging centralizado com formato `asctime [levelname] nome: mensagem`.
 
 ## Como executar
@@ -52,20 +51,13 @@ Servidor Flask que expõe a rota `POST /payment`. Aprova pagamentos com `price >
 ### Instalar dependências
 
 ```bash
-pip install flask requests pytest
+pip install -r requirements.txt
 ```
 
-### Subir o servidor
+### Subir o ambiente
 
 ```bash
-python main.py
-```
-
-Saída esperada:
-```
-Gateway      → http://0.0.0.0:5000
-PaymentSvc   → http://0.0.0.0:5001
-Pressione Ctrl+C para encerrar.
+docker compose up --build
 ```
 
 ### Fazer uma requisição de teste
@@ -116,7 +108,7 @@ O projeto tem dois tipos de teste:
 # Testes unitários (sem servidor)
 python -m pytest tests/test_monolith.py -v
 
-# Testes de integração (requer main.py rodando)
+# Testes de integração (requer docker compose up rodando)
 python -m pytest tests/test_integration.py -v
 
 # Todos juntos
@@ -130,7 +122,6 @@ python -m pytest tests/test_monolith.py tests/test_integration.py -v
 ├── gateway.py                  # Servidor Flask :5000
 ├── monolith.py                 # Lógica de pedidos, chama PaymentService via HTTP
 ├── payment_service.py          # Servidor Flask :5001
-├── main.py                     # Sobe os servidores e mantém o processo ativo
 ├── logger_config.py            # Configuração centralizada de logging
 └── tests/
     ├── test_monolith.py        # Testes unitários com mock HTTP
@@ -139,7 +130,7 @@ python -m pytest tests/test_monolith.py tests/test_integration.py -v
 
 ## Escalabilidade (Trabalho 02)
 
-O sistema implementa as estratégias descritas em `SCALABILITY.md`:
+O detalhamento completo (fundamentos, diagramas e análise comparativa) está em `relatorio.pdf`. Resumo da implementação:
 
 - **Gunicorn** com vários workers em cada serviço (escala vertical do processo).
 - **Replicação** do `payment_service` em três instâncias independentes (`payment1`, `payment2`, `payment3`).
