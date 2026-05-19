@@ -44,7 +44,6 @@ Servidor Flask que expõe a rota `POST /payment`. Aprova pagamentos com `price >
 
 ### Outros arquivos
 
-- `main.py` — sobe os dois servidores em threads e mantém o processo ativo.
 - `logger_config.py` — configura o logging centralizado com formato `asctime [levelname] nome: mensagem`.
 
 ## Como executar
@@ -52,20 +51,13 @@ Servidor Flask que expõe a rota `POST /payment`. Aprova pagamentos com `price >
 ### Instalar dependências
 
 ```bash
-pip install flask requests pytest
+pip install -r requirements.txt
 ```
 
-### Subir o servidor
+### Subir o ambiente
 
 ```bash
-python main.py
-```
-
-Saída esperada:
-```
-Gateway      → http://0.0.0.0:5000
-PaymentSvc   → http://0.0.0.0:5001
-Pressione Ctrl+C para encerrar.
+docker compose up --build
 ```
 
 ### Fazer uma requisição de teste
@@ -116,7 +108,7 @@ O projeto tem dois tipos de teste:
 # Testes unitários (sem servidor)
 python -m pytest tests/test_monolith.py -v
 
-# Testes de integração (requer main.py rodando)
+# Testes de integração (requer docker compose up rodando)
 python -m pytest tests/test_integration.py -v
 
 # Todos juntos
@@ -130,12 +122,52 @@ python -m pytest tests/test_monolith.py tests/test_integration.py -v
 ├── gateway.py                  # Servidor Flask :5000
 ├── monolith.py                 # Lógica de pedidos, chama PaymentService via HTTP
 ├── payment_service.py          # Servidor Flask :5001
-├── main.py                     # Sobe os servidores e mantém o processo ativo
 ├── logger_config.py            # Configuração centralizada de logging
 └── tests/
     ├── test_monolith.py        # Testes unitários com mock HTTP
     └── test_integration.py     # Testes de integração com servidores reais
 ```
+
+## Escalabilidade (Trabalho 02)
+
+O detalhamento completo (fundamentos, diagramas e análise comparativa) está em `relatorio.pdf`. Resumo da implementação:
+
+- **Gunicorn** com vários workers em cada serviço (escala vertical do processo).
+- **Replicação** do `payment_service` em três instâncias independentes (`payment1`, `payment2`, `payment3`).
+- **Load balancer round-robin manual** dentro do monólito (`monolith._next_payment_url`), configurado via `PAYMENT_SERVICE_URLS` (lista CSV).
+- Cada instância de pagamento expõe o seu `INSTANCE_ID` nos logs e na resposta JSON, para evidenciar qual réplica respondeu cada requisição.
+- **Idempotency-Key** + persistência em Postgres para evitar pedidos/pagamentos duplicados sob retries.
+- **Timeout + retries com backoff** (`tenacity`) na chamada do monólito para o pagamento.
+
+### Subir o ambiente escalado
+
+```bash
+docker compose up --build
+```
+
+### Executar teste de carga
+
+```bash
+# Baseline
+python loadtest.py -n 100 -c 10
+
+# Stress
+python loadtest.py -n 500 -c 100
+```
+
+O relatório do `loadtest.py` imprime tempo de resposta (min/mean/p95/p99), erros e a **distribuição por instância** — confirmando o efeito do round-robin entre `payment-1`, `payment-2` e `payment-3`.
+
+### Demonstrar com e sem escala
+
+```bash
+# Sem escala: usar apenas uma réplica
+PAYMENT_SERVICE_URLS=http://payment1:5001/payment docker compose up --build
+
+# Com escala: três réplicas (default do compose)
+docker compose up --build
+```
+
+Compare p95/p99 e throughput entre os dois cenários — é o que evidencia o ganho da escala horizontal.
 
 ## Considerações de design
 

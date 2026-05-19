@@ -1,0 +1,50 @@
+services:
+  gateway:
+    build: .
+    command: gunicorn -w 4 -b 0.0.0.0:5000 gateway:app
+    environment:
+      PAYMENT_SERVICE_URLS: http://payment1:5001/payment,http://payment2:5001/payment,http://payment3:5001/payment
+      DATABASE_URL: postgresql+psycopg2://app:app@db:5432/app
+    ports:
+      - "5000:5000"
+    depends_on:
+      - payment1
+      - payment2
+      - payment3
+      - db
+
+  payment1:
+    build: .
+    command: gunicorn -w 2 -b 0.0.0.0:5001 payment_service:app
+    environment:
+      INSTANCE_ID: payment-1
+    expose:
+      - "5001"
+
+  payment2:
+    build: .
+    command: gunicorn -w 2 -b 0.0.0.0:5001 payment_service:app
+    environment:
+      INSTANCE_ID: payment-2
+    expose:
+      - "5001"
+
+  payment3:
+    build: .
+    command: gunicorn -w 2 -b 0.0.0.0:5001 payment_service:app
+    environment:
+      INSTANCE_ID: payment-3
+    expose:
+      - "5001"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+volumes:
+  dbdata:
